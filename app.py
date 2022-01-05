@@ -18,54 +18,27 @@ https://stackoverflow.com/questions/19568950/return-a-requests-response-object-f
 
 #create a model of the web server env:
 
-def info_gather():
-    uri = str(request.url_rule)
-    print(request.method)
-    print(str(request.url_rule))
+
+
+
+
+def info_gather(var):
     if request.method == 'GET':
-        #print('yes')
-        url = 'http://127.0.0.1:8080' + uri
+        url = 'http://127.0.0.1:8080/' + var
         r = requests.get(url)
-        print(r.text)
+        return r.text
 
         #so we can return a redirect to the external URL with `redirect(url)` but this redirects them to the site, instead of having them submit requests through the proxy
-        return redirect(url)
+        #return redirect(url)
 
 
 
-@app.route("/")
-def main():
-    info_gather()
-    return ''
-
-
-@app.route("/test")
-def test():
-    info_gather()
-    return ""
-
-
-@app.route("/home")
-def home():
-    info_gather()
-    return ""
-
-
-@app.route("/vault")
-def vault():
-    info_gather()
-    return ""
-
-
-@app.route("/login")
-def login():
-    return info_gather()
+@app.route("/<reqPath>")
+def render(reqPath):
+    return info_gather(reqPath)
     
 
-
-
-
-
+    
 #runs the app without having to set any of the env vars that are listed in the documentation
 if __name__ == '__main__':
     app.run(debug=True)
