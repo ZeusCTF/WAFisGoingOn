@@ -49,10 +49,10 @@ def injection_dectector(userPayload, passPayload):
     with open('data.txt', 'w') as f:
             if cosine >= .75:
                 f.write(str(userPayload))
-                return 'Injection decteted - neturalizing threat'
+                
             elif cosine2 >= .75:
                 f.write(str(passPayload))
-                return 'Injection decteted - neturalizing threat'
+                
 
 def info_gather(var):
     if request.method == 'GET':
