@@ -1,23 +1,58 @@
 #This is the WAF/Reverse proxy project that will make me millions :^)
 from logging.config import valid_ident
+from os import environ
+import re
 from flask import Flask, request
 import requests
 
 app = Flask(__name__)
-'''
-Gather URL params
-https://stackoverflow.com/questions/15974730/how-do-i-get-the-different-parts-of-a-flask-requests-url
-'''
-'''
-Returning a response object?
-https://stackoverflow.com/questions/19568950/return-a-requests-response-object-from-flask
-'''
 
-def input_validation():
-    X = {'userName': ['superMan'], 'password': ['superman']}
-    
+def injection_dectector(userPayload, passPayload):
+    import math
+    import re
+    from collections import Counter
+
+    WORD = re.compile(r"\w+")
 
 
+    def get_cosine(vec1, vec2):
+        intersection = set(vec1.keys()) & set(vec2.keys())
+        numerator = sum([vec1[x] * vec2[x] for x in intersection])
+
+        sum1 = sum([vec1[x] ** 2 for x in list(vec1.keys())])
+        sum2 = sum([vec2[x] ** 2 for x in list(vec2.keys())])
+        denominator = math.sqrt(sum1) * math.sqrt(sum2)
+
+        if not denominator:
+            return 0.0
+        else:
+            return float(numerator) / denominator
+
+
+    def text_to_vector(text):
+        words = WORD.findall(text)
+        return Counter(words)
+
+    with open('data.txt', 'r') as f:  #replace data.txt with the wordlist of choice
+
+        for inj in f.readlines():
+            text2 = inj.rstrip('\n')
+            
+            vector1 = text_to_vector(str(userPayload))
+            vector2 = text_to_vector(text2)
+            vector3 = text_to_vector(str(passPayload))
+
+            cosine = get_cosine(vector1, vector2)
+            cosine2 = get_cosine(vector3, vector2)
+            f.close()
+
+    with open('data.txt', 'w') as f:
+            if cosine >= .75:
+                f.write(str(userPayload))
+                return 'Injection decteted - neturalizing threat'
+            elif cosine2 >= .75:
+                f.write(str(passPayload))
+                return 'Injection decteted - neturalizing threat'
 
 def info_gather(var):
     if request.method == 'GET':
@@ -26,10 +61,19 @@ def info_gather(var):
         html = session.get(url).content
         return html
     elif request.method == 'POST':
-        print(request.form.to_dict(flat=False))
+        
+        req_params = request.form.to_dict(flat=False)
+        userName = str(req_params['userName'][0])
+        userPass = str(req_params['password'][0])
+    
+
         url = 'http://127.0.0.1:8000/' + var
         r = requests.post(url, data=request.form.to_dict(flat=False))
-        return r.text
+        
+        if injection_dectector(userName,userPass):
+            return 'Injection decteted - neturalizing threat'
+        else:
+            return r.text
 
 
 @app.route("/<reqPath>", methods=['GET','POST'])
@@ -40,7 +84,6 @@ def render(reqPath):
 
 @app.route('/')
 def main():
-    #url = 'https://www.tesla.com'
     url = 'http://127.0.0.1:8000/'
     r = requests.get(url)
     return r.text, {'Server':'127.0.0.1:5000'}
