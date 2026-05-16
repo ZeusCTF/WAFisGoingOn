@@ -1,0 +1,62 @@
+# WAFisGoingOn — configuration
+# All runtime behaviour is controlled here; no source edits needed.
+
+# ── Backend target ────────────────────────────────────────────────────────────
+backend:
+  host: "127.0.0.1"
+  port: 8000
+  scheme: "http"
+  timeout: 10          # seconds before upstream request is aborted
+
+# ── WAF listener ─────────────────────────────────────────────────────────────
+waf:
+  host: "0.0.0.0"
+  port: 5000
+  debug: false
+
+# ── Detection ─────────────────────────────────────────────────────────────────
+detection:
+  wordlist: "data.txt"                       # path to attack payload list
+  threshold: 0.75                            # global similarity threshold (0-1)
+  embedding_model: "all-MiniLM-L6-v2"       # sentence-transformers model name
+                                             # set to "" to force word-cosine fallback
+
+# ── Per-route rule overrides ──────────────────────────────────────────────────
+route_rules:
+  "/login":
+    threshold: 0.65      # stricter on the login page
+  "/api/search":
+    threshold: 0.70
+
+# ── Allowlist ────────────────────────────────────────────────────────────────
+allowlist:
+  ips:
+    - "127.0.0.1"        # localhost is never blocked (remove for production)
+  paths:
+    - "^/health$"        # health-check endpoint is always passed through
+    - "^/static/.*"
+
+# ── Block response ────────────────────────────────────────────────────────────
+block:
+  format: "html"         # "html" | "json"
+  status_code: 403
+  html_template: "block.html"   # relative to templates/ directory
+  json_body: '{"error": "Request blocked by WAF"}'
+
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+  burst: 10
+
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+dashboard:
+  enabled: true
+  route: "/waf-dashboard"
+  api_key: "change-me-before-deploying"     # set WAF_DASHBOARD_KEY env var to override
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"          # DEBUG | INFO | WARNING | ERROR
+  file: "waf.log"        # set to "" to log to stdout only
+  db: "waf_events.db"    # SQLite event store

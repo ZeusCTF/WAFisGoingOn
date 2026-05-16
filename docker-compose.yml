@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  target:
+    build:
+      context: .
+      dockerfile: Dockerfile.target
+    container_name: waf_target
+    expose:
+      - "8000"
+    networks:
+      - waf_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  waf:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wafisgoingon
+    ports:
+      - "5000:5000"
+    environment:
+      WAF_BACKEND_HOST: target
+      WAF_BACKEND_PORT: "8000"
+      WAF_DASHBOARD_KEY: "${WAF_DASHBOARD_KEY:-change-me-before-deploying}"
+      WAF_LOG_LEVEL: "INFO"
+    volumes:
+      - waf_data:/app/data
+      - ./data.txt:/app/data.txt          # mount local wordlist
+      - ./config.yaml:/app/config.yaml    # mount local config
+    depends_on:
+      target:
+        condition: service_healthy
+    networks:
+      - waf_net
+    restart: unless-stopped
+
+networks:
+  waf_net:
+    driver: bridge
+
+volumes:
+  waf_data:
