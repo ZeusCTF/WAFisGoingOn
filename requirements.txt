@@ -1,0 +1,7 @@
+flask>=3.0
+requests>=2.31
+pyyaml>=6.0
+# Semantic detection (optional but recommended — falls back to word-cosine without these)
+sentence-transformers>=2.7
+faiss-cpu>=1.8
+numpy>=1.26

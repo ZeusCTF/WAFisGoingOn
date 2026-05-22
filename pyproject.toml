@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "wafisgoingon"
+version = "2.0.0"
+description = "A smart, ML-powered WAF / reverse proxy with a real-time dashboard"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0",
+    "requests>=2.31",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+ml = [
+    "sentence-transformers>=2.7",
+    "faiss-cpu>=1.8",
+    "numpy>=1.26",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-flask>=1.3",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+wafisgoingon = "app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["waf*"]

