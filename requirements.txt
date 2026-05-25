@@ -5,3 +5,4 @@ pyyaml>=6.0
 sentence-transformers>=2.7
 faiss-cpu>=1.8
 numpy>=1.26
+reportlab>=4.0

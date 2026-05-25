@@ -12,6 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from waf.classifier import classify, ATTACK_CLASSES
+
 logger = logging.getLogger(__name__)
 
 
@@ -137,27 +139,33 @@ class WAFDetector:
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS events (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                ts        TEXT    NOT NULL,
-                ip        TEXT,
-                method    TEXT,
-                path      TEXT,
-                surface   TEXT,
-                payload   TEXT,
-                score     REAL,
-                blocked   INTEGER
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts           TEXT    NOT NULL,
+                ip           TEXT,
+                method       TEXT,
+                path         TEXT,
+                surface      TEXT,
+                payload      TEXT,
+                score        REAL,
+                blocked      INTEGER,
+                attack_class TEXT    DEFAULT 'unknown'
             )
             """
         )
+        try:
+            con.execute("ALTER TABLE events ADD COLUMN attack_class TEXT DEFAULT 'unknown'")
+        except Exception:
+            pass
         con.commit()
         con.close()
 
     def _log_event(self, ip: str, method: str, path: str,
                    surface: str, payload: str, score: float, blocked: bool):
+        attack_class = classify(payload) if blocked and payload else "unknown"
         con = sqlite3.connect(self.db_path)
         con.execute(
-            "INSERT INTO events(ts,ip,method,path,surface,payload,score,blocked) VALUES(?,?,?,?,?,?,?,?)",
-            (datetime.utcnow().isoformat(), ip, method, path, surface, payload, score, int(blocked)),
+            "INSERT INTO events(ts,ip,method,path,surface,payload,score,blocked,attack_class) VALUES(?,?,?,?,?,?,?,?,?)",
+            (datetime.utcnow().isoformat(), ip, method, path, surface, payload, score, int(blocked), attack_class),
         )
         con.commit()
         con.close()
@@ -253,13 +261,13 @@ class WAFDetector:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
 
-        total = cur.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+        total   = cur.execute("SELECT COUNT(*) FROM events").fetchone()[0]
         blocked = cur.execute("SELECT COUNT(*) FROM events WHERE blocked=1").fetchone()[0]
         top_ips = cur.execute(
             "SELECT ip, COUNT(*) as c FROM events WHERE blocked=1 GROUP BY ip ORDER BY c DESC LIMIT 5"
         ).fetchall()
         recent = cur.execute(
-            "SELECT ts,ip,method,path,surface,payload,score,blocked FROM events ORDER BY id DESC LIMIT 50"
+            "SELECT ts,ip,method,path,surface,payload,score,blocked,attack_class FROM events ORDER BY id DESC LIMIT 50"
         ).fetchall()
         per_minute = cur.execute(
             """
@@ -272,14 +280,55 @@ class WAFDetector:
             ORDER BY minute
             """
         ).fetchall()
+
+        # Attack pattern breakdown — count per class, ordered by frequency
+        raw_patterns = cur.execute(
+            """
+            SELECT attack_class, COUNT(*) as count
+            FROM events
+            WHERE blocked=1
+            GROUP BY attack_class
+            ORDER BY count DESC
+            """
+        ).fetchall()
+
+        # Merge DB counts with full class registry so zero-count classes appear
+        pattern_counts = {r["attack_class"]: r["count"] for r in raw_patterns}
+        attack_patterns = [
+            {
+                "name":  cls.name,
+                "label": cls.label,
+                "color": cls.color,
+                "icon":  cls.icon,
+                "count": pattern_counts.get(cls.name, 0),
+            }
+            for cls in ATTACK_CLASSES
+        ]
+
+        # Timeline of attacks per class (last 24 h, hourly buckets)
+        pattern_timeline = cur.execute(
+            """
+            SELECT strftime('%Y-%m-%dT%H:00', ts) as hour,
+                   attack_class,
+                   COUNT(*) as count
+            FROM events
+            WHERE blocked=1
+              AND ts >= datetime('now', '-24 hours')
+            GROUP BY hour, attack_class
+            ORDER BY hour
+            """
+        ).fetchall()
+
         con.close()
 
         return {
-            "total": total,
-            "blocked": blocked,
-            "allowed": total - blocked,
-            "block_rate": round(blocked / total * 100, 1) if total else 0,
-            "top_ips": [dict(r) for r in top_ips],
-            "recent": [dict(r) for r in recent],
-            "per_minute": [dict(r) for r in per_minute],
+            "total":           total,
+            "blocked":         blocked,
+            "allowed":         total - blocked,
+            "block_rate":      round(blocked / total * 100, 1) if total else 0,
+            "top_ips":         [dict(r) for r in top_ips],
+            "recent":          [dict(r) for r in recent],
+            "per_minute":      [dict(r) for r in per_minute],
+            "attack_patterns": attack_patterns,
+            "pattern_timeline":[dict(r) for r in pattern_timeline],
         }
